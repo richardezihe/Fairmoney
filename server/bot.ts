@@ -23,7 +23,13 @@ if (!BOT_TOKEN) {
 let bot: Telegraf | null = null;
 try {
   if (BOT_TOKEN) {
+    // Stop any existing bot instance
+    if (bot) {
+      await bot.stop();
+    }
     bot = new Telegraf(BOT_TOKEN);
+    // Use webhook mode to prevent polling conflicts
+    bot.telegram.deleteWebhook();
     console.log('Bot instance created successfully');
   }
 } catch (error) {
