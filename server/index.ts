@@ -1,34 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { createServer } from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-
-// Set a timeout to catch issues where the server doesn't initialize
-const SERVER_TIMEOUT = 60000; // 60 seconds
-const serverInitializationTimeout = setTimeout(() => {
-  console.error("SERVER INITIALIZATION TIMEOUT: The server failed to initialize within", SERVER_TIMEOUT/1000, "seconds");
-  console.error("Forcing server to listen on port 5000...");
-  
-  const app = express();
-  const server = require('http').createServer(app);
-  
-  app.get('/', (req, res) => {
-    res.send('Server running in emergency fallback mode. Normal functionality may be limited.');
-  });
-  
-  server.listen({
-    port: 5000,
-    host: "0.0.0.0",
-    reusePort: true,
-    ipv6Only: false,
-  }, () => {
-    console.log('Emergency fallback server listening on port 5000');
-  });
-}, SERVER_TIMEOUT);
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -47,26 +26,25 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
       log(logLine);
     }
   });
-
   next();
 });
 
-(async () => {
+async function startServer() {
   console.log("Starting server initialization...");
-  
+
   try {
     console.log("Registering routes...");
-    const server = await registerRoutes(app);
+    const server = createServer(app);
+    await registerRoutes(app);
     console.log("Routes registered successfully");
 
+    // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
@@ -74,9 +52,7 @@ app.use((req, res, next) => {
       res.status(status).json({ message });
     });
 
-    // importantly only setup vite in development and after
-    // setting up all the other routes so the catch-all route
-    // doesn't interfere with the other routes
+    // Setup Vite in development or static serving in production
     if (app.get("env") === "development") {
       console.log("Setting up Vite for development...");
       await setupVite(app, server);
@@ -87,25 +63,29 @@ app.use((req, res, next) => {
       console.log("Static serving setup complete");
     }
 
-    // ALWAYS serve the app on port 5000
-    // this serves both the API and the client.
-    // It is the only port that is not firewalled.
     const port = process.env.PORT || 5000;
     console.log(`Starting server on port ${port}...`);
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-      keepAliveTimeout: 65000,
-      headersTimeout: 66000,
-    }, () => {
-      log(`serving on port ${port}`);
-      // Clear the timeout as we've successfully started the server
-      clearTimeout(serverInitializationTimeout);
-    }).on('error', (error) => {
-      console.error('Server error:', error);
+
+    return new Promise((resolve, reject) => {
+      server.listen({
+        port,
+        host: "0.0.0.0",
+        ipv6Only: false,
+      }, () => {
+        log(`Server running on port ${port}`);
+        resolve(server);
+      }).on('error', (error) => {
+        console.error('Server error:', error);
+        reject(error);
+      });
     });
   } catch (error) {
     console.error("Error during server initialization:", error);
+    throw error;
   }
-})();
+}
+
+startServer().catch(error => {
+  console.error("Fatal server error:", error);
+  process.exit(1);
+});
