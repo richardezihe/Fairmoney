@@ -118,8 +118,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin API routes
   // All admin routes require authentication
   
-  // Get dashboard stats
-  app.get('/api/admin/stats', authenticateToken, async (req: Request, res: Response) => {
+  // Get dashboard stats - no authentication required
+  app.get('/api/admin/stats', async (req: Request, res: Response) => {
     try {
       const allUsers = await storage.getAllTelegramUsers();
       const allWithdrawals = await storage.getAllWithdrawalRequests();
@@ -150,8 +150,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get all users
-  app.get('/api/admin/users', authenticateToken, async (req: Request, res: Response) => {
+  // Get all users - no authentication required
+  app.get('/api/admin/users', async (req: Request, res: Response) => {
     try {
       const users = await storage.getAllTelegramUsers();
       
@@ -165,8 +165,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get all withdrawal requests
-  app.get('/api/admin/withdrawals', authenticateToken, async (req: Request, res: Response) => {
+  // Get all withdrawal requests - no authentication required
+  app.get('/api/admin/withdrawals', async (req: Request, res: Response) => {
     try {
       const withdrawals = await storage.getAllWithdrawalRequests();
       const users = await storage.getAllTelegramUsers();
@@ -200,8 +200,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Update withdrawal request status
-  app.post('/api/admin/withdrawals/update', authenticateToken, async (req: Request, res: Response) => {
+  // Update withdrawal request status - no authentication required
+  app.post('/api/admin/withdrawals/update', async (req: Request, res: Response) => {
     try {
       const schema = z.object({
         id: z.number(),
@@ -265,8 +265,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Reset withdrawal requests
-  app.post('/api/admin/reset-withdrawals', authenticateToken, async (req: Request, res: Response) => {
+  // Reset withdrawal requests - no authentication required
+  app.post('/api/admin/reset-withdrawals', async (req: Request, res: Response) => {
     try {
       await storage.resetWithdrawalRequests();
       res.json({ message: 'Withdrawal requests have been reset successfully' });
@@ -276,8 +276,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Reset all data
-  app.post('/api/admin/reset-all-data', authenticateToken, async (req: Request, res: Response) => {
+  // Reset all data - no authentication required
+  app.post('/api/admin/reset-all-data', async (req: Request, res: Response) => {
     try {
       await storage.resetAllData();
       res.json({ message: 'All data has been reset successfully' });
