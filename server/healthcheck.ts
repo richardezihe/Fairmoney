@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+import http from "http";
 
 /**
  * This script checks if the application is up and running
@@ -7,22 +7,40 @@ import fetch from "node-fetch";
  * It will exit with code 0 if the app is healthy, or 1 if it's not.
  * This can be used by Render's health check system.
  */
-async function healthCheck() {
-  try {
-    const port = process.env.PORT || 5000;
-    const response = await fetch(`http://localhost:${port}/api/health`);
+function healthCheck() {
+  const port = process.env.PORT || 5000;
+  const options = {
+    hostname: 'localhost',
+    port: port,
+    path: '/api/health',
+    method: 'GET',
+    timeout: 2000 // 2 second timeout
+  };
+
+  const req = http.request(options, (res) => {
+    const { statusCode } = res;
     
-    if (response.ok) {
+    if (statusCode === 200) {
       console.log("Health check passed!");
       process.exit(0);
     } else {
-      console.error(`Health check failed with status: ${response.status}`);
+      console.error(`Health check failed with status: ${statusCode}`);
       process.exit(1);
     }
-  } catch (error) {
+  });
+
+  req.on('error', (error) => {
     console.error("Health check failed:", error);
     process.exit(1);
-  }
+  });
+
+  req.on('timeout', () => {
+    console.error("Health check timed out");
+    req.destroy();
+    process.exit(1);
+  });
+
+  req.end();
 }
 
 healthCheck();

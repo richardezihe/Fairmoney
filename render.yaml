@@ -7,6 +7,8 @@ services:
     region: singapore # Change this to your preferred region
     buildCommand: npm ci && npm run build
     startCommand: npm start
+    healthCheckPath: /api/health
+    healthCheckTimeout: 5000
     envVars:
       - key: NODE_ENV
         value: production

@@ -12,6 +12,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
   console.log("HTTP server created");
+  
+  // Health check endpoint for Render
+  app.get('/api/health', (req: Request, res: Response) => {
+    res.status(200).json({ status: 'ok', message: 'Server is healthy', timestamp: new Date().toISOString() });
+  });
 
   // Initialize Telegram bot - using setTimeout to avoid blocking server startup
   console.log("Setting up Telegram bot initialization...");
