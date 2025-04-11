@@ -15,9 +15,9 @@ export const REQUIRED_GROUPS = [
   'naijavaluecommunity'
 ];
 
-export const SUPPORT_CHANNEL = 'naijavaluesupport';
+export const SUPPORT_USERNAME = 'naijavaluesupport';
 export const NEWS_CHANNEL = 'naijavaluecommunity';
-export const SUPPORT_USERNAME = 'NaijaValueSupport';
+export const SUPPORT_CONTACT = '@naijavaluesupport';
 
 // Financial constants
 export const CURRENCY = '₦';

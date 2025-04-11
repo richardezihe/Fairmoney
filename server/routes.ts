@@ -137,9 +137,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).length;
       
       res.json({
-        totalUsers: 100000, // Display 100,000 for marketing purposes
+        totalUsers: allUsers.length, // Show actual user count
         actualUsers: allUsers.length,
-        totalPayouts: 5000000, // Display 5,000,000 for marketing purposes
+        totalPayouts: totalPayouts, // Show actual payout amount
         actualPayouts: totalPayouts,
         pendingWithdrawals,
         recentUsers

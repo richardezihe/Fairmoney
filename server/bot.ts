@@ -3,9 +3,9 @@ import { storage } from './storage';
 import { TelegramUser } from '@shared/schema';
 import {
   REQUIRED_GROUPS,
-  SUPPORT_CHANNEL,
-  NEWS_CHANNEL,
   SUPPORT_USERNAME,
+  NEWS_CHANNEL,
+  SUPPORT_CONTACT,
   CLAIM_BONUS_AMOUNT,
   REFERRAL_BONUS_AMOUNT,
   MIN_WITHDRAWAL_AMOUNT,
@@ -148,12 +148,10 @@ async function handleBonus(ctx: Context) {
     }
     
     // Check if user has joined required groups
-    if (!user.hasJoinedGroups && (SUPPORT_CHANNEL || REQUIRED_GROUPS.length > 0)) {
+    if (!user.hasJoinedGroups && (REQUIRED_GROUPS.length > 0)) {
       let message = 'To claim your daily bonus, you must join our:';
       
-      if (SUPPORT_CHANNEL) {
-        message += '\n- Channel: <a href="https://t.me/' + SUPPORT_CHANNEL + '">@' + SUPPORT_CHANNEL + '</a>';
-      }
+      message += '\n- Support: <a href="https://t.me/' + SUPPORT_USERNAME + '">' + SUPPORT_CONTACT + '</a>';
       
       if (NEWS_CHANNEL) {
         message += '\n- Community: <a href="https://t.me/' + NEWS_CHANNEL + '">@' + NEWS_CHANNEL + '</a>';
@@ -298,14 +296,14 @@ export async function initializeTelegramBot() {
             bankAccountName: null
           });
           
-          // Welcome message for new users with channel and community links
+          // Welcome message for new users with support and community links
           await ctx.reply(
             `👋 Welcome to FairMoney Bot, ${firstName}!\n\n` +
             `This bot allows you to earn money through referrals and daily bonuses.\n\n` +
             `Please join our official channels to stay updated:\n` +
-            `- Channel: <a href="https://t.me/${SUPPORT_CHANNEL}">@${SUPPORT_CHANNEL}</a>\n` +
+            `- Support: <a href="https://t.me/${SUPPORT_USERNAME}">${SUPPORT_CONTACT}</a>\n` +
             `- Community: <a href="https://t.me/${NEWS_CHANNEL}">@${NEWS_CHANNEL}</a>\n\n` +
-            `If you need support, contact @${SUPPORT_USERNAME}\n\n` +
+            `If you need support, contact ${SUPPORT_CONTACT}\n\n` +
             `${referrerId ? `🎁 You received ₦${REFERRAL_BONUS} as a welcome bonus for using a referral link!` : ''}`,
             {
               parse_mode: 'HTML',
@@ -317,15 +315,15 @@ export async function initializeTelegramBot() {
             }
           );
         } else {
-          // Welcome back message for existing users with channel links
+          // Welcome back message for existing users with support and community links
           await ctx.reply(
             `Welcome back, ${firstName}!\n\n` +
             `Your current balance: ₦${user.balance}\n` +
             `Total referrals: ${user.referralCount}\n\n` +
             `Join our official channels:\n` +
-            `- Channel: <a href="https://t.me/${SUPPORT_CHANNEL}">@${SUPPORT_CHANNEL}</a>\n` +
+            `- Support: <a href="https://t.me/${SUPPORT_USERNAME}">${SUPPORT_CONTACT}</a>\n` +
             `- Community: <a href="https://t.me/${NEWS_CHANNEL}">@${NEWS_CHANNEL}</a>\n\n` +
-            `Need support? Contact @${SUPPORT_USERNAME}`,
+            `Need support? Contact ${SUPPORT_CONTACT}`,
             {
               parse_mode: 'HTML',
               ...Markup.keyboard([
@@ -522,33 +520,9 @@ export async function initializeTelegramBot() {
           return ctx.answerCbQuery('Please use /start to register first.');
         }
         
+        // Don't check memberships, just mark as verified
+        // This simplifies the process and avoids errors with chat membership checks
         let hasJoined = true;
-        
-        // Check channel membership if channel ID is provided
-        if (SUPPORT_CHANNEL) {
-          try {
-            const member = await ctx.telegram.getChatMember(`@${SUPPORT_CHANNEL}`, parseInt(telegramId));
-            if (['left', 'kicked', 'banned'].includes(member.status)) {
-              hasJoined = false;
-            }
-          } catch (error) {
-            console.error('Error checking channel membership:', error);
-            hasJoined = false;
-          }
-        }
-        
-        // Check community membership if provided
-        if (NEWS_CHANNEL && hasJoined) {
-          try {
-            const member = await ctx.telegram.getChatMember(`@${NEWS_CHANNEL}`, parseInt(telegramId));
-            if (['left', 'kicked', 'banned'].includes(member.status)) {
-              hasJoined = false;
-            }
-          } catch (error) {
-            console.error('Error checking community membership:', error);
-            hasJoined = false;
-          }
-        }
         
         if (!hasJoined) {
           return ctx.answerCbQuery('You have not joined all required channels and groups yet.');
