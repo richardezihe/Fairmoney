@@ -96,10 +96,14 @@ app.use((req, res, next) => {
       port,
       host: "0.0.0.0",
       reusePort: true,
+      keepAliveTimeout: 65000,
+      headersTimeout: 66000,
     }, () => {
       log(`serving on port ${port}`);
       // Clear the timeout as we've successfully started the server
       clearTimeout(serverInitializationTimeout);
+    }).on('error', (error) => {
+      console.error('Server error:', error);
     });
   } catch (error) {
     console.error("Error during server initialization:", error);
