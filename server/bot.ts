@@ -1,6 +1,16 @@
 import { Telegraf, Markup, Context } from 'telegraf';
 import { storage } from './storage';
 import { TelegramUser } from '@shared/schema';
+import {
+  REQUIRED_GROUPS,
+  SUPPORT_CHANNEL,
+  NEWS_CHANNEL,
+  SUPPORT_USERNAME,
+  CLAIM_BONUS_AMOUNT,
+  REFERRAL_BONUS_AMOUNT,
+  MIN_WITHDRAWAL_AMOUNT,
+  WITHDRAWAL_DAYS
+} from './constants';
 
 // Environment variable for Telegram bot token, fallback to a default if not provided
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -22,11 +32,9 @@ try {
 }
 
 // Configuration options
-const REFERRAL_BONUS = 100; // Amount given to both referrer and referee
-const DAILY_BONUS = 50; // Daily bonus amount
-const MIN_WITHDRAWAL = 500; // Minimum withdrawal amount
-const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || ''; // Channel users must join to get bonus
-const GROUP_ID = process.env.TELEGRAM_GROUP_ID || ''; // Group users must join to get bonus
+const REFERRAL_BONUS = REFERRAL_BONUS_AMOUNT;
+const DAILY_BONUS = CLAIM_BONUS_AMOUNT;
+const MIN_WITHDRAWAL = MIN_WITHDRAWAL_AMOUNT;
 
 // Helper functions
 async function handleBalanceCheck(ctx: Context) {
@@ -66,11 +74,11 @@ async function handleReferral(ctx: Context) {
     const referralLink = `https://t.me/${botInfo.username}?start=${telegramId}`;
     
     await ctx.reply(
-      `🔗 *Your Referral Link*\n\n` +
+      `🔗 <b>Your Referral Link</b>\n\n` +
       `Share this link with your friends and earn ₦${REFERRAL_BONUS} for each person who joins!\n\n` +
       `${referralLink}\n\n` +
       `Total referrals: ${user.referralCount}`,
-      { parse_mode: 'Markdown' }
+      { parse_mode: 'HTML' }
     );
   } catch (error) {
     console.error('Error generating referral link:', error);
