@@ -27,7 +27,7 @@ export async function apiRequest(
   const res = await fetch(url, {
     method,
     headers,
-    body: data ? JSON.stringify(data) : undefined,
+    body: method !== 'GET' && data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
 

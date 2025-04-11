@@ -5,19 +5,28 @@ import { apiRequest } from './queryClient';
 
 // Dashboard
 export async function fetchDashboardStats(): Promise<DashboardStats> {
-  const response = await apiRequest('GET', '/api/admin/stats', {});
+  const response = await fetch('/api/admin/stats');
+  if (!response.ok) {
+    throw new Error('Failed to fetch dashboard stats');
+  }
   return response.json();
 }
 
 // Users
 export async function fetchUsers(): Promise<TelegramUser[]> {
-  const response = await apiRequest('GET', '/api/admin/users', {});
+  const response = await fetch('/api/admin/users');
+  if (!response.ok) {
+    throw new Error('Failed to fetch users');
+  }
   return response.json();
 }
 
 // Withdrawals
 export async function fetchWithdrawalRequests(): Promise<WithdrawalRequest[]> {
-  const response = await apiRequest('GET', '/api/admin/withdrawals', {});
+  const response = await fetch('/api/admin/withdrawals');
+  if (!response.ok) {
+    throw new Error('Failed to fetch withdrawal requests');
+  }
   return response.json();
 }
 
