@@ -48,11 +48,12 @@ async function handleBalanceCheck(ctx: Context) {
     }
     
     await ctx.reply(
-      `💰 *Your Balance*\n\n` +
+      `💰 <b>Your Balance</b>\n\n` +
       `Current balance: ₦${user.balance}\n` +
       `Total referrals: ${user.referralCount}\n\n` +
-      `You can withdraw your earnings once you reach ₦${MIN_WITHDRAWAL}.`,
-      { parse_mode: 'Markdown' }
+      `You can withdraw your earnings once you reach ₦${MIN_WITHDRAWAL}.` +
+      (WITHDRAWAL_DAYS.length ? `\n<i>Withdrawals are only processed on weekends (Saturday and Sunday)</i>` : ''),
+      { parse_mode: 'HTML' }
     );
   } catch (error) {
     console.error('Error checking balance:', error);
@@ -96,6 +97,18 @@ async function handleWithdrawal(ctx: Context) {
       return ctx.reply('Please use /start to register first.');
     }
     
+    // Check if today is a weekend (Saturday or Sunday)
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 is Sunday, 6 is Saturday
+    
+    // Check if withdrawal is allowed today (only on weekends)
+    if (!WITHDRAWAL_DAYS.includes(dayOfWeek)) {
+      return ctx.reply(
+        '⚠️ Withdrawals are only available on weekends (Saturday and Sunday).\n\n' +
+        'Please try again on the weekend.'
+      );
+    }
+    
     if (user.balance < MIN_WITHDRAWAL) {
       return ctx.reply(
         `You need at least ₦${MIN_WITHDRAWAL} to withdraw. Your current balance is ₦${user.balance}.`
@@ -135,21 +148,21 @@ async function handleBonus(ctx: Context) {
     }
     
     // Check if user has joined required groups
-    if (!user.hasJoinedGroups && (CHANNEL_ID || GROUP_ID)) {
+    if (!user.hasJoinedGroups && (SUPPORT_CHANNEL || REQUIRED_GROUPS.length > 0)) {
       let message = 'To claim your daily bonus, you must join our:';
       
-      if (CHANNEL_ID) {
-        message += '\n- Channel: [Join Channel](https://t.me/' + CHANNEL_ID + ')';
+      if (SUPPORT_CHANNEL) {
+        message += '\n- Channel: <a href="https://t.me/' + SUPPORT_CHANNEL + '">@' + SUPPORT_CHANNEL + '</a>';
       }
       
-      if (GROUP_ID) {
-        message += '\n- Group: [Join Group](https://t.me/' + GROUP_ID + ')';
+      if (NEWS_CHANNEL) {
+        message += '\n- Community: <a href="https://t.me/' + NEWS_CHANNEL + '">@' + NEWS_CHANNEL + '</a>';
       }
       
       message += '\n\nAfter joining, click the "Verify Membership" button below.';
       
       await ctx.reply(message, {
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
           Markup.button.callback('✅ Verify Membership', 'verify_joined')
         ])
@@ -192,17 +205,21 @@ async function handleBonus(ctx: Context) {
 async function handleHelp(ctx: Context) {
   try {
     await ctx.reply(
-      'ℹ️ *FairMoney Bot Help*\n\n' +
-      'Here\'s how to use this bot:\n\n' +
-      '• /start - Start the bot and register\n' +
-      '• /balance - Check your current balance\n' +
-      '• /referral - Get your referral link\n' +
-      '• /withdraw - Withdraw your earnings\n' +
-      '• /bonus - Claim your daily bonus\n' +
-      '• /setbank - Set your bank details for withdrawals\n\n' +
+      `<b>ℹ️ FairMoney Bot Help</b>\n\n` +
+      `Here's how to use this bot:\n\n` +
+      `• /start - Start the bot and register\n` +
+      `• /balance - Check your current balance\n` +
+      `• /referral - Get your referral link\n` +
+      `• /withdraw - Withdraw your earnings (weekends only)\n` +
+      `• /bonus - Claim your daily bonus\n` +
+      `• /setbank - Set your bank details for withdrawals\n\n` +
       `You earn ₦${REFERRAL_BONUS} for each person who joins using your referral link, and you can claim ₦${DAILY_BONUS} daily bonus.\n\n` +
-      `Minimum withdrawal amount is ₦${MIN_WITHDRAWAL}.`,
-      { parse_mode: 'Markdown' }
+      `Minimum withdrawal amount is ₦${MIN_WITHDRAWAL}.\n\n` +
+      `<b>Important Notes:</b>\n` +
+      `• Withdrawals are only processed on weekends (Saturday and Sunday)\n` +
+      `• You must join our official channel and community to earn bonuses\n` +
+      `• For support, contact @${SUPPORT_USERNAME}`,
+      { parse_mode: 'HTML' }
     );
   } catch (error) {
     console.error('Error displaying help:', error);
@@ -281,28 +298,42 @@ export async function initializeTelegramBot() {
             bankAccountName: null
           });
           
-          // Welcome message for new users
+          // Welcome message for new users with channel and community links
           await ctx.reply(
             `👋 Welcome to FairMoney Bot, ${firstName}!\n\n` +
             `This bot allows you to earn money through referrals and daily bonuses.\n\n` +
+            `Please join our official channels to stay updated:\n` +
+            `- Channel: <a href="https://t.me/${SUPPORT_CHANNEL}">@${SUPPORT_CHANNEL}</a>\n` +
+            `- Community: <a href="https://t.me/${NEWS_CHANNEL}">@${NEWS_CHANNEL}</a>\n\n` +
+            `If you need support, contact @${SUPPORT_USERNAME}\n\n` +
             `${referrerId ? `🎁 You received ₦${REFERRAL_BONUS} as a welcome bonus for using a referral link!` : ''}`,
-            Markup.keyboard([
-              ['💰 Balance', '🔗 Referral Link'],
-              ['💸 Withdraw', '🎁 Daily Bonus'],
-              ['ℹ️ Help']
-            ]).resize()
+            {
+              parse_mode: 'HTML',
+              ...Markup.keyboard([
+                ['💰 Balance', '🔗 Referral Link'],
+                ['💸 Withdraw', '🎁 Daily Bonus'],
+                ['ℹ️ Help']
+              ]).resize()
+            }
           );
         } else {
-          // Welcome back message for existing users
+          // Welcome back message for existing users with channel links
           await ctx.reply(
             `Welcome back, ${firstName}!\n\n` +
             `Your current balance: ₦${user.balance}\n` +
-            `Total referrals: ${user.referralCount}`,
-            Markup.keyboard([
-              ['💰 Balance', '🔗 Referral Link'],
-              ['💸 Withdraw', '🎁 Daily Bonus'],
-              ['ℹ️ Help']
-            ]).resize()
+            `Total referrals: ${user.referralCount}\n\n` +
+            `Join our official channels:\n` +
+            `- Channel: <a href="https://t.me/${SUPPORT_CHANNEL}">@${SUPPORT_CHANNEL}</a>\n` +
+            `- Community: <a href="https://t.me/${NEWS_CHANNEL}">@${NEWS_CHANNEL}</a>\n\n` +
+            `Need support? Contact @${SUPPORT_USERNAME}`,
+            {
+              parse_mode: 'HTML',
+              ...Markup.keyboard([
+                ['💰 Balance', '🔗 Referral Link'],
+                ['💸 Withdraw', '🎁 Daily Bonus'],
+                ['ℹ️ Help']
+              ]).resize()
+            }
           );
         }
       } catch (error) {
@@ -417,6 +448,18 @@ export async function initializeTelegramBot() {
           return ctx.reply('Please use /start to register first.');
         }
         
+        // Check if today is a weekend (Saturday or Sunday)
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0 is Sunday, 6 is Saturday
+        
+        // Check if withdrawal is allowed today (only on weekends)
+        if (!WITHDRAWAL_DAYS.includes(dayOfWeek)) {
+          return ctx.reply(
+            '⚠️ Withdrawals are only available on weekends (Saturday and Sunday).\n\n' +
+            'Please try again on the weekend.'
+          );
+        }
+        
         // Check if user has bank details
         if (!user.bankName || !user.bankAccountNumber || !user.bankAccountName) {
           return ctx.reply(
@@ -482,9 +525,9 @@ export async function initializeTelegramBot() {
         let hasJoined = true;
         
         // Check channel membership if channel ID is provided
-        if (CHANNEL_ID) {
+        if (SUPPORT_CHANNEL) {
           try {
-            const member = await ctx.telegram.getChatMember(`@${CHANNEL_ID}`, parseInt(telegramId));
+            const member = await ctx.telegram.getChatMember(`@${SUPPORT_CHANNEL}`, parseInt(telegramId));
             if (['left', 'kicked', 'banned'].includes(member.status)) {
               hasJoined = false;
             }
@@ -494,15 +537,15 @@ export async function initializeTelegramBot() {
           }
         }
         
-        // Check group membership if group ID is provided
-        if (GROUP_ID && hasJoined) {
+        // Check community membership if provided
+        if (NEWS_CHANNEL && hasJoined) {
           try {
-            const member = await ctx.telegram.getChatMember(`@${GROUP_ID}`, parseInt(telegramId));
+            const member = await ctx.telegram.getChatMember(`@${NEWS_CHANNEL}`, parseInt(telegramId));
             if (['left', 'kicked', 'banned'].includes(member.status)) {
               hasJoined = false;
             }
           } catch (error) {
-            console.error('Error checking group membership:', error);
+            console.error('Error checking community membership:', error);
             hasJoined = false;
           }
         }
