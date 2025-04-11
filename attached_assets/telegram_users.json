@@ -1,0 +1,33 @@
+[
+  {
+    "telegramId": "8045084951",
+    "firstName": "Ezihe",
+    "lastName": "",
+    "username": "Ezihe001",
+    "joinedAt": "2025-04-06T06:50:28.355Z",
+    "balance": 63000,
+    "referralCount": 1,
+    "hasJoinedGroups": true,
+    "lastBonusClaim": "2025-04-06T08:46:39.056Z",
+    "bankAccountNumber": "6117325381",
+    "bankName": "OPay",
+    "bankAccountName": "JULIET CHIDINMA EZIHE",
+    "id": 1
+  },
+  {
+    "telegramId": "5922141261",
+    "firstName": "Ezihe",
+    "lastName": "Juliet",
+    "username": "",
+    "joinedAt": "2025-04-06T07:26:33.789Z",
+    "balance": 45000,
+    "referrerId": "8045084951",
+    "referralCount": 0,
+    "hasJoinedGroups": true,
+    "lastBonusClaim": "2025-04-06T08:18:11.428Z",
+    "bankAccountNumber": "2039485746",
+    "bankName": "Access Bank",
+    "bankAccountName": "EZIHE JULIET",
+    "id": 2
+  }
+]

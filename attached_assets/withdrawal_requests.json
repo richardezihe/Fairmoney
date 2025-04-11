@@ -1,0 +1,22 @@
+[
+  {
+    "telegramUserId": "8045084951",
+    "amount": 20000,
+    "createdAt": "2025-04-06T09:36:00.000Z",
+    "status": "rejected",
+    "bankAccountNumber": "6117325381",
+    "bankName": "OPay",
+    "bankAccountName": "JULIET CHIDINMA EZIHE",
+    "id": 1
+  },
+  {
+    "telegramUserId": "5922141261",
+    "amount": 20000,
+    "createdAt": "2025-04-06T09:36:30.000Z",
+    "status": "rejected",
+    "bankAccountNumber": "2039485746",
+    "bankName": "Access Bank",
+    "bankAccountName": "EZIHE JULIET",
+    "id": 2
+  }
+]
