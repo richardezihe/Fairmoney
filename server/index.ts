@@ -19,6 +19,7 @@ const serverInitializationTimeout = setTimeout(() => {
     port: 5000,
     host: "0.0.0.0",
     reusePort: true,
+    ipv6Only: false,
   }, () => {
     console.log('Emergency fallback server listening on port 5000');
   });
