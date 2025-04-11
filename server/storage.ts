@@ -9,12 +9,12 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   // Sessions
   createSession(session: InsertSession): Promise<Session>;
   getSessionByToken(token: string): Promise<Session | undefined>;
   deleteSession(token: string): Promise<void>;
-  
+
   // Telegram users
   getTelegramUser(telegramId: string): Promise<TelegramUser | undefined>;
   createTelegramUser(user: InsertTelegramUser): Promise<TelegramUser>;
@@ -22,14 +22,14 @@ export interface IStorage {
   getAllTelegramUsers(): Promise<TelegramUser[]>;
   getTelegramUsersByReferrerId(referrerId: string): Promise<TelegramUser[]>;
   getTelegramUserCount(): Promise<number>;
-  
+
   // Withdrawal requests
   createWithdrawalRequest(request: InsertWithdrawalRequest): Promise<WithdrawalRequest>;
   getWithdrawalRequestsByTelegramId(telegramId: string): Promise<WithdrawalRequest[]>;
   getAllWithdrawalRequests(): Promise<WithdrawalRequest[]>;
   updateWithdrawalRequestStatus(id: number, status: string): Promise<WithdrawalRequest | undefined>;
   getTotalWithdrawalAmount(): Promise<number>;
-  
+
   // System operations
   resetAllData(): Promise<void>;
   resetWithdrawalRequests(): Promise<void>;
@@ -52,15 +52,21 @@ export class DatabaseStorage implements IStorage {
       const adminUser = await this.getUserByUsername('admin');
       console.log('Admin user check result:', adminUser ? 'exists' : 'not found');
       if (!adminUser) {
-        await this.createUser({
-          username: 'admin',
-          password: 'admin123', // In a real app, this would be hashed
-          isAdmin: true
-        });
-        console.log('Default admin user created');
+        try {
+          await this.createUser({
+            username: 'admin',
+            password: 'admin123', // In a real app, this would be hashed
+            isAdmin: true
+          });
+          console.log('Default admin user created');
+        } catch (error) {
+          console.error('Error creating admin user:', error);
+          throw new Error('Failed to create admin user');
+        }
       }
     } catch (error) {
-      console.error('Error in ensureAdminUser:', error);
+      console.error('Error ensuring admin user exists:', error);
+      throw new Error('Failed to check/create admin user');
     }
   }
 
@@ -71,11 +77,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.username, username.toLowerCase()));
-    return user;
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, username.toLowerCase()));
+      return user;
+    } catch (error) {
+      console.error('Error getting user by username:', error);
+      return undefined;
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -132,13 +143,13 @@ export class DatabaseStorage implements IStorage {
   async updateTelegramUser(telegramId: string, updates: Partial<TelegramUser>): Promise<TelegramUser | undefined> {
     // Remove id from updates if present, as we shouldn't update primary keys
     const { id, ...updateData } = updates;
-    
+
     const [updatedUser] = await db
       .update(telegramUsers)
       .set(updateData)
       .where(eq(telegramUsers.telegramId, telegramId))
       .returning();
-    
+
     return updatedUser;
   }
 
@@ -164,7 +175,7 @@ export class DatabaseStorage implements IStorage {
       .insert(withdrawalRequests)
       .values(insertRequest)
       .returning();
-    
+
     return request;
   }
 
@@ -192,7 +203,7 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(withdrawalRequests.id, id))
       .returning();
-    
+
     return updatedRequest;
   }
 
@@ -201,23 +212,23 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(withdrawalRequests)
       .where(eq(withdrawalRequests.status, 'approved'));
-    
+
     return approvedRequests.reduce((total, request) => total + request.amount, 0);
   }
-  
+
   // System operations
   async resetAllData(): Promise<void> {
     // Keep admin users but reset Telegram users and withdrawal requests
     await db.delete(telegramUsers);
     await db.delete(withdrawalRequests);
-    
+
     console.log('All data has been reset successfully');
   }
-  
+
   // Reset only withdrawal requests, preserve Telegram users
   async resetWithdrawalRequests(): Promise<void> {
     await db.delete(withdrawalRequests);
-    
+
     console.log('Withdrawal requests have been reset successfully');
   }
 }
