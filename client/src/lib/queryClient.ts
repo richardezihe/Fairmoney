@@ -51,7 +51,16 @@ export const getQueryFn: <T>(options: {
       headers["Authorization"] = `Bearer ${authToken}`;
     }
     
-    const res = await fetch(queryKey[0] as string, {
+    // Use the first element of queryKey as the URL string
+    let url = queryKey[0] as string;
+    
+    // Extract any additional query parameters from other elements in the queryKey array
+    if (queryKey.length > 1 && typeof queryKey[1] === 'object') {
+      // Don't send objects as part of the URL, they should be handled differently
+    }
+    
+    const res = await fetch(url, {
+      method: 'GET',
       headers,
       credentials: "include",
     });

@@ -10,7 +10,16 @@ if (!BOT_TOKEN) {
   console.warn('TELEGRAM_BOT_TOKEN is not set. Bot will not be initialized.');
 }
 
-const bot = BOT_TOKEN ? new Telegraf(BOT_TOKEN) : null;
+let bot: Telegraf | null = null;
+try {
+  if (BOT_TOKEN) {
+    bot = new Telegraf(BOT_TOKEN);
+    console.log('Bot instance created successfully');
+  }
+} catch (error) {
+  console.error('Error creating Telegram bot instance:', error);
+  bot = null;
+}
 
 // Configuration options
 const REFERRAL_BONUS = 100; // Amount given to both referrer and referee
@@ -18,167 +27,6 @@ const DAILY_BONUS = 50; // Daily bonus amount
 const MIN_WITHDRAWAL = 500; // Minimum withdrawal amount
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || ''; // Channel users must join to get bonus
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID || ''; // Group users must join to get bonus
-
-// Initialize the bot
-export async function initializeTelegramBot() {
-  if (!bot) {
-    console.log('Telegram bot not initialized due to missing token');
-    return;
-  }
-
-  // Set bot commands
-  await bot.telegram.setMyCommands([
-    { command: 'start', description: 'Start the bot' },
-    { command: 'balance', description: 'Check your balance' },
-    { command: 'withdraw', description: 'Withdraw your earnings' },
-    { command: 'referral', description: 'Get your referral link' },
-    { command: 'bonus', description: 'Claim daily bonus' },
-    { command: 'help', description: 'Get help' }
-  ]);
-
-  // Handle /start command
-  bot.command('start', async (ctx) => {
-    try {
-      const telegramId = ctx.from.id.toString();
-      const firstName = ctx.from.first_name;
-      const lastName = ctx.from?.last_name || '';
-      const username = ctx.from?.username || '';
-      
-      // Check if user already exists
-      let user = await storage.getTelegramUser(telegramId);
-      
-      if (!user) {
-        // Extract referral code if present
-        const startPayload = ctx.message.text.split(' ')[1];
-        let referrerId = null;
-        
-        if (startPayload) {
-          referrerId = startPayload;
-          const referrer = await storage.getTelegramUser(referrerId);
-          
-          if (referrer) {
-            // Update referrer's stats and balance
-            await storage.updateTelegramUser(referrerId, {
-              referralCount: referrer.referralCount + 1,
-              balance: referrer.balance + REFERRAL_BONUS
-            });
-            
-            // Send notification to referrer
-            bot.telegram.sendMessage(
-              parseInt(referrerId),
-              `🎉 Congratulations! ${firstName} joined using your referral link. You received ₦${REFERRAL_BONUS} bonus!`
-            ).catch(err => console.error('Error sending referral notification:', err));
-          }
-        }
-        
-        // Create new user
-        user = await storage.createTelegramUser({
-          telegramId,
-          firstName,
-          lastName: lastName || null,
-          username: username || null,
-          balance: referrerId ? REFERRAL_BONUS : 0, // Give bonus if user joined via referral
-          referrerId,
-          referralCount: 0,
-          hasJoinedGroups: false,
-          lastBonusClaim: null,
-          bankAccountNumber: null,
-          bankName: null,
-          bankAccountName: null
-        });
-        
-        // Welcome message for new users
-        await ctx.reply(
-          `👋 Welcome to FairMoney Bot, ${firstName}!\n\n` +
-          `This bot allows you to earn money through referrals and daily bonuses.\n\n` +
-          `${referrerId ? `🎁 You received ₦${REFERRAL_BONUS} as a welcome bonus for using a referral link!` : ''}`,
-          Markup.keyboard([
-            ['💰 Balance', '🔗 Referral Link'],
-            ['💸 Withdraw', '🎁 Daily Bonus'],
-            ['ℹ️ Help']
-          ]).resize()
-        );
-      } else {
-        // Welcome back message for existing users
-        await ctx.reply(
-          `Welcome back, ${firstName}!\n\n` +
-          `Your current balance: ₦${user.balance}\n` +
-          `Total referrals: ${user.referralCount}`,
-          Markup.keyboard([
-            ['💰 Balance', '🔗 Referral Link'],
-            ['💸 Withdraw', '🎁 Daily Bonus'],
-            ['ℹ️ Help']
-          ]).resize()
-        );
-      }
-    } catch (error) {
-      console.error('Error in start command:', error);
-      await ctx.reply('Sorry, there was an error. Please try again later.');
-    }
-  });
-
-  // Handle /balance command
-  bot.command('balance', async (ctx) => {
-    await handleBalanceCheck(ctx);
-  });
-
-  // Handle "💰 Balance" button
-  bot.hears('💰 Balance', async (ctx) => {
-    await handleBalanceCheck(ctx);
-  });
-
-  // Handle /referral command
-  bot.command('referral', async (ctx) => {
-    await handleReferral(ctx);
-  });
-
-  // Handle "🔗 Referral Link" button
-  bot.hears('🔗 Referral Link', async (ctx) => {
-    await handleReferral(ctx);
-  });
-
-  // Handle /withdraw command
-  bot.command('withdraw', async (ctx) => {
-    await handleWithdrawal(ctx);
-  });
-
-  // Handle "💸 Withdraw" button
-  bot.hears('💸 Withdraw', async (ctx) => {
-    await handleWithdrawal(ctx);
-  });
-
-  // Handle /bonus command
-  bot.command('bonus', async (ctx) => {
-    await handleBonus(ctx);
-  });
-
-  // Handle "🎁 Daily Bonus" button
-  bot.hears('🎁 Daily Bonus', async (ctx) => {
-    await handleBonus(ctx);
-  });
-
-  // Handle /help command
-  bot.command('help', async (ctx) => {
-    await handleHelp(ctx);
-  });
-
-  // Handle "ℹ️ Help" button
-  bot.hears('ℹ️ Help', async (ctx) => {
-    await handleHelp(ctx);
-  });
-
-  // Start the bot
-  bot.catch((err, ctx) => {
-    console.error(`Error for ${ctx.updateType}`, err);
-  });
-
-  await bot.launch();
-  console.log('Telegram bot successfully launched');
-  
-  // Enable graceful stop
-  process.once('SIGINT', () => bot.stop('SIGINT'));
-  process.once('SIGTERM', () => bot.stop('SIGTERM'));
-}
 
 // Helper functions
 async function handleBalanceCheck(ctx: Context) {
@@ -268,113 +116,6 @@ async function handleWithdrawal(ctx: Context) {
   }
 }
 
-// Handle bank details setting
-bot?.command('setbank', async (ctx) => {
-  try {
-    const telegramId = ctx.from.id.toString();
-    const user = await storage.getTelegramUser(telegramId);
-    
-    if (!user) {
-      return ctx.reply('Please use /start to register first.');
-    }
-    
-    const input = ctx.message.text.substring('/setbank'.length).trim();
-    const parts = input.split('|').map(part => part.trim());
-    
-    if (parts.length !== 3) {
-      return ctx.reply(
-        'Invalid format. Please use:\n/setbank [bank name] | [account number] | [account name]\n\n' +
-        'Example: /setbank Access Bank | 1234567890 | John Doe'
-      );
-    }
-    
-    const [bankName, bankAccountNumber, bankAccountName] = parts;
-    
-    if (!bankName || !bankAccountNumber || !bankAccountName) {
-      return ctx.reply('All fields are required. Please try again.');
-    }
-    
-    // Update user bank details
-    await storage.updateTelegramUser(telegramId, {
-      bankName,
-      bankAccountNumber,
-      bankAccountName
-    });
-    
-    await ctx.reply(
-      '✅ Bank details updated successfully!\n\n' +
-      `Bank: ${bankName}\n` +
-      `Account Number: ${bankAccountNumber}\n` +
-      `Account Name: ${bankAccountName}\n\n` +
-      'You can now proceed with withdrawals.'
-    );
-  } catch (error) {
-    console.error('Error setting bank details:', error);
-    await ctx.reply('Sorry, there was an error saving your bank details. Please try again.');
-  }
-});
-
-// Handle withdrawal amount
-bot?.command('withdraw_amount', async (ctx) => {
-  try {
-    const telegramId = ctx.from.id.toString();
-    const user = await storage.getTelegramUser(telegramId);
-    
-    if (!user) {
-      return ctx.reply('Please use /start to register first.');
-    }
-    
-    // Check if user has bank details
-    if (!user.bankName || !user.bankAccountNumber || !user.bankAccountName) {
-      return ctx.reply(
-        'Please set your bank details first with /setbank command.'
-      );
-    }
-    
-    const input = ctx.message.text.substring('/withdraw_amount'.length).trim();
-    const amount = parseInt(input);
-    
-    if (isNaN(amount) || amount <= 0) {
-      return ctx.reply('Please enter a valid amount.');
-    }
-    
-    if (amount < MIN_WITHDRAWAL) {
-      return ctx.reply(`Minimum withdrawal amount is ₦${MIN_WITHDRAWAL}.`);
-    }
-    
-    if (amount > user.balance) {
-      return ctx.reply(`You don't have enough balance. Your current balance is ₦${user.balance}.`);
-    }
-    
-    // Create withdrawal request
-    const withdrawalRequest = await storage.createWithdrawalRequest({
-      telegramUserId: telegramId,
-      amount,
-      bankName: user.bankName,
-      bankAccountNumber: user.bankAccountNumber,
-      bankAccountName: user.bankAccountName,
-      status: 'pending'
-    });
-    
-    // Deduct amount from user balance
-    await storage.updateTelegramUser(telegramId, {
-      balance: user.balance - amount
-    });
-    
-    await ctx.reply(
-      '✅ Withdrawal request submitted successfully!\n\n' +
-      `Amount: ₦${amount}\n` +
-      `Bank: ${user.bankName}\n` +
-      `Account Number: ${user.bankAccountNumber}\n` +
-      `Account Name: ${user.bankAccountName}\n\n` +
-      'Your request is being processed and you will receive your payment within 24-48 hours.'
-    );
-  } catch (error) {
-    console.error('Error processing withdrawal amount:', error);
-    await ctx.reply('Sorry, there was an error processing your withdrawal. Please try again later.');
-  }
-});
-
 async function handleBonus(ctx: Context) {
   try {
     const telegramId = ctx.from?.id.toString();
@@ -440,69 +181,6 @@ async function handleBonus(ctx: Context) {
   }
 }
 
-// Handle group membership verification
-bot?.action('verify_joined', async (ctx) => {
-  try {
-    const telegramId = ctx.from?.id.toString();
-    if (!telegramId) return;
-    
-    const user = await storage.getTelegramUser(telegramId);
-    if (!user) {
-      return ctx.answerCbQuery('Please use /start to register first.');
-    }
-    
-    let hasJoined = true;
-    
-    // Check channel membership if channel ID is provided
-    if (CHANNEL_ID) {
-      try {
-        const member = await ctx.telegram.getChatMember(`@${CHANNEL_ID}`, parseInt(telegramId));
-        if (['left', 'kicked', 'banned'].includes(member.status)) {
-          hasJoined = false;
-        }
-      } catch (error) {
-        console.error('Error checking channel membership:', error);
-        hasJoined = false;
-      }
-    }
-    
-    // Check group membership if group ID is provided
-    if (GROUP_ID && hasJoined) {
-      try {
-        const member = await ctx.telegram.getChatMember(`@${GROUP_ID}`, parseInt(telegramId));
-        if (['left', 'kicked', 'banned'].includes(member.status)) {
-          hasJoined = false;
-        }
-      } catch (error) {
-        console.error('Error checking group membership:', error);
-        hasJoined = false;
-      }
-    }
-    
-    if (!hasJoined) {
-      return ctx.answerCbQuery('You have not joined all required channels and groups yet.');
-    }
-    
-    // Update user and give daily bonus
-    const updatedUser = await storage.updateTelegramUser(telegramId, {
-      hasJoinedGroups: true,
-      balance: user.balance + DAILY_BONUS,
-      lastBonusClaim: new Date()
-    });
-    
-    await ctx.answerCbQuery('Membership verified successfully!');
-    
-    await ctx.editMessageText(
-      `✅ You've successfully joined our community and claimed your daily bonus of ₦${DAILY_BONUS}!\n\n` +
-      `New balance: ₦${updatedUser?.balance || 0}`,
-      Markup.inlineKeyboard([])
-    );
-  } catch (error) {
-    console.error('Error verifying membership:', error);
-    await ctx.answerCbQuery('An error occurred. Please try again later.');
-  }
-});
-
 async function handleHelp(ctx: Context) {
   try {
     await ctx.reply(
@@ -521,5 +199,349 @@ async function handleHelp(ctx: Context) {
   } catch (error) {
     console.error('Error displaying help:', error);
     await ctx.reply('Sorry, there was an error. Please try again later.');
+  }
+}
+
+// Initialize the bot
+export async function initializeTelegramBot() {
+  if (!bot) {
+    console.log('Telegram bot not initialized due to missing token or initialization error');
+    return;
+  }
+
+  try {
+    console.log('Setting bot commands...');
+    // Set bot commands
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: 'Start the bot' },
+      { command: 'balance', description: 'Check your balance' },
+      { command: 'withdraw', description: 'Withdraw your earnings' },
+      { command: 'referral', description: 'Get your referral link' },
+      { command: 'bonus', description: 'Claim daily bonus' },
+      { command: 'help', description: 'Get help' }
+    ]);
+    console.log('Bot commands set successfully');
+
+    // Handle /start command
+    bot.command('start', async (ctx) => {
+      try {
+        const telegramId = ctx.from.id.toString();
+        const firstName = ctx.from.first_name;
+        const lastName = ctx.from?.last_name || '';
+        const username = ctx.from?.username || '';
+        
+        // Check if user already exists
+        let user = await storage.getTelegramUser(telegramId);
+        
+        if (!user) {
+          // Extract referral code if present
+          const startPayload = ctx.message.text.split(' ')[1];
+          let referrerId = null;
+          
+          if (startPayload) {
+            referrerId = startPayload;
+            const referrer = await storage.getTelegramUser(referrerId);
+            
+            if (referrer) {
+              // Update referrer's stats and balance
+              await storage.updateTelegramUser(referrerId, {
+                referralCount: referrer.referralCount + 1,
+                balance: referrer.balance + REFERRAL_BONUS
+              });
+              
+              // Send notification to referrer
+              bot.telegram.sendMessage(
+                parseInt(referrerId),
+                `🎉 Congratulations! ${firstName} joined using your referral link. You received ₦${REFERRAL_BONUS} bonus!`
+              ).catch(err => console.error('Error sending referral notification:', err));
+            }
+          }
+          
+          // Create new user
+          user = await storage.createTelegramUser({
+            telegramId,
+            firstName,
+            lastName: lastName || null,
+            username: username || null,
+            balance: referrerId ? REFERRAL_BONUS : 0, // Give bonus if user joined via referral
+            referrerId,
+            referralCount: 0,
+            hasJoinedGroups: false,
+            lastBonusClaim: null,
+            bankAccountNumber: null,
+            bankName: null,
+            bankAccountName: null
+          });
+          
+          // Welcome message for new users
+          await ctx.reply(
+            `👋 Welcome to FairMoney Bot, ${firstName}!\n\n` +
+            `This bot allows you to earn money through referrals and daily bonuses.\n\n` +
+            `${referrerId ? `🎁 You received ₦${REFERRAL_BONUS} as a welcome bonus for using a referral link!` : ''}`,
+            Markup.keyboard([
+              ['💰 Balance', '🔗 Referral Link'],
+              ['💸 Withdraw', '🎁 Daily Bonus'],
+              ['ℹ️ Help']
+            ]).resize()
+          );
+        } else {
+          // Welcome back message for existing users
+          await ctx.reply(
+            `Welcome back, ${firstName}!\n\n` +
+            `Your current balance: ₦${user.balance}\n` +
+            `Total referrals: ${user.referralCount}`,
+            Markup.keyboard([
+              ['💰 Balance', '🔗 Referral Link'],
+              ['💸 Withdraw', '🎁 Daily Bonus'],
+              ['ℹ️ Help']
+            ]).resize()
+          );
+        }
+      } catch (error) {
+        console.error('Error in start command:', error);
+        await ctx.reply('Sorry, there was an error. Please try again later.');
+      }
+    });
+
+    // Handle /balance command
+    bot.command('balance', async (ctx) => {
+      await handleBalanceCheck(ctx);
+    });
+
+    // Handle "💰 Balance" button
+    bot.hears('💰 Balance', async (ctx) => {
+      await handleBalanceCheck(ctx);
+    });
+
+    // Handle /referral command
+    bot.command('referral', async (ctx) => {
+      await handleReferral(ctx);
+    });
+
+    // Handle "🔗 Referral Link" button
+    bot.hears('🔗 Referral Link', async (ctx) => {
+      await handleReferral(ctx);
+    });
+
+    // Handle /withdraw command
+    bot.command('withdraw', async (ctx) => {
+      await handleWithdrawal(ctx);
+    });
+
+    // Handle "💸 Withdraw" button
+    bot.hears('💸 Withdraw', async (ctx) => {
+      await handleWithdrawal(ctx);
+    });
+
+    // Handle /bonus command
+    bot.command('bonus', async (ctx) => {
+      await handleBonus(ctx);
+    });
+
+    // Handle "🎁 Daily Bonus" button
+    bot.hears('🎁 Daily Bonus', async (ctx) => {
+      await handleBonus(ctx);
+    });
+
+    // Handle /help command
+    bot.command('help', async (ctx) => {
+      await handleHelp(ctx);
+    });
+
+    // Handle "ℹ️ Help" button
+    bot.hears('ℹ️ Help', async (ctx) => {
+      await handleHelp(ctx);
+    });
+
+    // Handle bank details setting
+    bot.command('setbank', async (ctx) => {
+      try {
+        const telegramId = ctx.from.id.toString();
+        const user = await storage.getTelegramUser(telegramId);
+        
+        if (!user) {
+          return ctx.reply('Please use /start to register first.');
+        }
+        
+        const input = ctx.message.text.substring('/setbank'.length).trim();
+        const parts = input.split('|').map(part => part.trim());
+        
+        if (parts.length !== 3) {
+          return ctx.reply(
+            'Invalid format. Please use:\n/setbank [bank name] | [account number] | [account name]\n\n' +
+            'Example: /setbank Access Bank | 1234567890 | John Doe'
+          );
+        }
+        
+        const [bankName, bankAccountNumber, bankAccountName] = parts;
+        
+        if (!bankName || !bankAccountNumber || !bankAccountName) {
+          return ctx.reply('All fields are required. Please try again.');
+        }
+        
+        // Update user bank details
+        await storage.updateTelegramUser(telegramId, {
+          bankName,
+          bankAccountNumber,
+          bankAccountName
+        });
+        
+        await ctx.reply(
+          '✅ Bank details updated successfully!\n\n' +
+          `Bank: ${bankName}\n` +
+          `Account Number: ${bankAccountNumber}\n` +
+          `Account Name: ${bankAccountName}\n\n` +
+          'You can now proceed with withdrawals.'
+        );
+      } catch (error) {
+        console.error('Error setting bank details:', error);
+        await ctx.reply('Sorry, there was an error saving your bank details. Please try again.');
+      }
+    });
+
+    // Handle withdrawal amount
+    bot.command('withdraw_amount', async (ctx) => {
+      try {
+        const telegramId = ctx.from.id.toString();
+        const user = await storage.getTelegramUser(telegramId);
+        
+        if (!user) {
+          return ctx.reply('Please use /start to register first.');
+        }
+        
+        // Check if user has bank details
+        if (!user.bankName || !user.bankAccountNumber || !user.bankAccountName) {
+          return ctx.reply(
+            'Please set your bank details first with /setbank command.'
+          );
+        }
+        
+        const input = ctx.message.text.substring('/withdraw_amount'.length).trim();
+        const amount = parseInt(input);
+        
+        if (isNaN(amount) || amount <= 0) {
+          return ctx.reply('Please enter a valid amount.');
+        }
+        
+        if (amount < MIN_WITHDRAWAL) {
+          return ctx.reply(`Minimum withdrawal amount is ₦${MIN_WITHDRAWAL}.`);
+        }
+        
+        if (amount > user.balance) {
+          return ctx.reply(`You don't have enough balance. Your current balance is ₦${user.balance}.`);
+        }
+        
+        // Create withdrawal request
+        const withdrawalRequest = await storage.createWithdrawalRequest({
+          telegramUserId: telegramId,
+          amount,
+          bankName: user.bankName,
+          bankAccountNumber: user.bankAccountNumber,
+          bankAccountName: user.bankAccountName,
+          status: 'pending'
+        });
+        
+        // Deduct amount from user balance
+        await storage.updateTelegramUser(telegramId, {
+          balance: user.balance - amount
+        });
+        
+        await ctx.reply(
+          '✅ Withdrawal request submitted successfully!\n\n' +
+          `Amount: ₦${amount}\n` +
+          `Bank: ${user.bankName}\n` +
+          `Account Number: ${user.bankAccountNumber}\n` +
+          `Account Name: ${user.bankAccountName}\n\n` +
+          'Your request is being processed and you will receive your payment within 24-48 hours.'
+        );
+      } catch (error) {
+        console.error('Error processing withdrawal amount:', error);
+        await ctx.reply('Sorry, there was an error processing your withdrawal. Please try again later.');
+      }
+    });
+
+    // Handle group membership verification
+    bot.action('verify_joined', async (ctx) => {
+      try {
+        const telegramId = ctx.from?.id.toString();
+        if (!telegramId) return;
+        
+        const user = await storage.getTelegramUser(telegramId);
+        if (!user) {
+          return ctx.answerCbQuery('Please use /start to register first.');
+        }
+        
+        let hasJoined = true;
+        
+        // Check channel membership if channel ID is provided
+        if (CHANNEL_ID) {
+          try {
+            const member = await ctx.telegram.getChatMember(`@${CHANNEL_ID}`, parseInt(telegramId));
+            if (['left', 'kicked', 'banned'].includes(member.status)) {
+              hasJoined = false;
+            }
+          } catch (error) {
+            console.error('Error checking channel membership:', error);
+            hasJoined = false;
+          }
+        }
+        
+        // Check group membership if group ID is provided
+        if (GROUP_ID && hasJoined) {
+          try {
+            const member = await ctx.telegram.getChatMember(`@${GROUP_ID}`, parseInt(telegramId));
+            if (['left', 'kicked', 'banned'].includes(member.status)) {
+              hasJoined = false;
+            }
+          } catch (error) {
+            console.error('Error checking group membership:', error);
+            hasJoined = false;
+          }
+        }
+        
+        if (!hasJoined) {
+          return ctx.answerCbQuery('You have not joined all required channels and groups yet.');
+        }
+        
+        // Update user and give daily bonus
+        const updatedUser = await storage.updateTelegramUser(telegramId, {
+          hasJoinedGroups: true,
+          balance: user.balance + DAILY_BONUS,
+          lastBonusClaim: new Date()
+        });
+        
+        await ctx.answerCbQuery('Membership verified successfully!');
+        
+        await ctx.editMessageText(
+          `✅ You've successfully joined our community and claimed your daily bonus of ₦${DAILY_BONUS}!\n\n` +
+          `New balance: ₦${updatedUser?.balance || 0}`,
+          Markup.inlineKeyboard([])
+        );
+      } catch (error) {
+        console.error('Error verifying membership:', error);
+        await ctx.answerCbQuery('An error occurred. Please try again later.');
+      }
+    });
+
+    // Start the bot
+    bot.catch((err, ctx) => {
+      console.error(`Error for ${ctx.updateType}`, err);
+    });
+
+    try {
+      console.log('Launching Telegram bot...');
+      await bot.launch();
+      console.log('Telegram bot successfully launched');
+      
+      // Enable graceful stop
+      process.once('SIGINT', () => bot.stop('SIGINT'));
+      process.once('SIGTERM', () => bot.stop('SIGTERM'));
+    } catch (error) {
+      console.error('Error launching Telegram bot:', error);
+      console.log('Continuing without Telegram bot functionality');
+    }
+  } catch (error) {
+    console.error('Error setting up Telegram bot commands and handlers:', error);
+    console.log('Continuing without Telegram bot functionality');
   }
 }

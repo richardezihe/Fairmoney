@@ -7,12 +7,27 @@ import crypto from 'crypto';
 import { initializeTelegramBot } from "./bot";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  console.log("Starting route registration...");
+  
   // Create HTTP server
   const httpServer = createServer(app);
+  console.log("HTTP server created");
 
-  // Initialize Telegram bot
-  await initializeTelegramBot();
+  // Initialize Telegram bot - using setTimeout to avoid blocking server startup
+  console.log("Setting up Telegram bot initialization...");
+  setTimeout(async () => {
+    try {
+      console.log("Initializing Telegram bot in background...");
+      await initializeTelegramBot();
+      console.log("Telegram bot initialization completed");
+    } catch (error) {
+      console.error("Error initializing Telegram bot:", error);
+      console.log("Continuing server operation despite Telegram bot initialization failure");
+    }
+  }, 1000);
+  console.log("Telegram bot initialization scheduled, continuing with server startup");
 
+  console.log("Setting up authentication routes...");
   // Authentication routes
   app.post('/api/auth/login', async (req: Request, res: Response) => {
     try {
