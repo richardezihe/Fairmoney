@@ -37,13 +37,68 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   constructor() {
-    // Delay the admin user creation to let the app start
-    console.log('DatabaseStorage initialized, will check admin user after startup');
-    setTimeout(() => {
-      this.ensureAdminUser().catch(err => {
-        console.error('Error ensuring admin user exists:', err);
-      });
-    }, 1000);
+    console.log('DatabaseStorage initialized, will setup database');
+    this.initializeDatabase().catch(err => {
+      console.error('Error initializing database:', err);
+    });
+  }
+
+  private async initializeDatabase() {
+    try {
+      // Create tables if they don't exist
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          username TEXT NOT NULL UNIQUE,
+          password TEXT NOT NULL,
+          is_admin BOOLEAN DEFAULT false NOT NULL
+        );
+        
+        CREATE TABLE IF NOT EXISTS telegram_users (
+          id SERIAL PRIMARY KEY,
+          telegram_id TEXT NOT NULL UNIQUE,
+          first_name TEXT NOT NULL,
+          last_name TEXT,
+          username TEXT,
+          balance INTEGER DEFAULT 0,
+          referrer_id TEXT,
+          referral_count INTEGER DEFAULT 0,
+          has_joined_groups BOOLEAN DEFAULT false,
+          last_bonus_claim TIMESTAMP,
+          bank_account_number TEXT,
+          bank_name TEXT,
+          bank_account_name TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS withdrawal_requests (
+          id SERIAL PRIMARY KEY,
+          telegram_user_id TEXT NOT NULL,
+          amount INTEGER NOT NULL,
+          bank_name TEXT NOT NULL,
+          bank_account_number TEXT NOT NULL,
+          bank_account_name TEXT NOT NULL,
+          status TEXT DEFAULT 'pending' NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+        );
+        
+        CREATE TABLE IF NOT EXISTS sessions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          token TEXT NOT NULL UNIQUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          expires_at TIMESTAMP NOT NULL
+        );
+      `);
+      
+      console.log('Database tables created successfully');
+      await this.ensureAdminUser();
+      
+    } catch (error) {
+      console.error('Failed to initialize database:', error);
+      throw error;
+    }
   }
 
   private async ensureAdminUser() {
