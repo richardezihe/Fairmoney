@@ -63,6 +63,8 @@ export class DatabaseStorage implements IStorage {
           console.error('Error creating admin user:', error);
           throw new Error('Failed to create admin user');
         }
+      } else {
+        console.log('Admin user already exists');
       }
     } catch (error) {
       console.error('Error ensuring admin user exists:', error);
